@@ -1,12 +1,558 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <title>Interactive Video Experience</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>Интерактивный видео-опыт</title>
+  <style>
+    /* ----- ОБЩИЕ СТИЛИ ----- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Advaken Sans Expanded', 'Arial Black', sans-serif;
+      color: #fff;
+      user-select: none;
+    }
+
+    /* ----- ПОДКЛЮЧЕНИЕ ШРИФТА ----- */
+    @font-face {
+      font-family: 'Advaken Sans Expanded';
+      src: url('advaken-sans-expanded.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* ----- ГЛАВНЫЙ ЭКРАН ----- */
+    #main-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+      transition: opacity 0.8s ease;
+      z-index: 10;
+    }
+
+    .digits {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 3rem;
+      font-size: clamp(5rem, 20vw, 12rem);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 30px rgba(255,255,255,0.4);
+    }
+
+    .digit {
+      font-family: 'Advaken Sans Expanded', 'Arial Black', sans-serif;
+      transition: transform 0.3s ease, opacity 0.3s;
+    }
+
+    .digit.inactive {
+      opacity: 0.3;
+      transform: scale(0.9);
+      filter: grayscale(1);
+      cursor: default;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .main-btn {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      color: #fff;
+      font-family: 'Advaken Sans Expanded', 'Arial', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      padding: 1rem 2.5rem;
+      border-radius: 60px;
+      cursor: pointer;
+      transition: all 0.35s ease;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .main-btn:hover:not(.disabled) {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.7);
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+      transform: scale(1.03);
+    }
+
+    .main-btn.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      filter: grayscale(0.8);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    /* ----- ВИДЕО КОНТЕЙНЕР ----- */
+    #video-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+
+    #video-container.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    /* ----- ОВЕРЛЕЙ С КНОПКАМИ НА ВИДЕО ----- */
+    #overlay-buttons {
+      position: absolute;
+      bottom: 15%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 2rem;
+      z-index: 110;
+      transition: opacity 0.5s ease;
+    }
+
+    .overlay-btn {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px);
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      color: #fff;
+      font-family: 'Advaken Sans Expanded', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+      padding: 0.8rem 2rem;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: 0.05em;
+    }
+
+    .overlay-btn.active:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: #fff;
+      box-shadow: 0 0 25px rgba(255,255,255,0.5);
+      transform: scale(1.03);
+    }
+
+    .overlay-btn.inactive {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.7);
+    }
+
+    /* ----- ЭКРАН СО ЗВЁЗДАМИ ----- */
+    #stars-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+
+    canvas#stars-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .circle-btn {
+      position: relative;
+      z-index: 210;
+      width: 120px;
+      height: 120px;
+      background: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      color: #000;
+      font-size: 2.8rem;
+      font-weight: bold;
+      box-shadow: 0 0 40px rgba(255,255,255,0.7);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s;
+      cursor: pointer;
+      animation: fadeInUp 1s ease forwards;
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    .circle-btn:hover {
+      transform: scale(1.08) translateY(0);
+      box-shadow: 0 0 70px rgba(255,255,255,0.9);
+    }
+
+    @keyframes fadeInUp {
+      0% { opacity: 0; transform: translateY(30px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Адаптивность для мобильных */
+    @media (max-width: 600px) {
+      .digits {
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+      .main-btn {
+        font-size: 1.2rem;
+        padding: 0.7rem 1.5rem;
+      }
+      .overlay-btn {
+        font-size: 1rem;
+        padding: 0.6rem 1.4rem;
+      }
+      #overlay-buttons {
+        gap: 1rem;
+        bottom: 20%;
+      }
+    }
+  </style>
 </head>
-<body class="loading">
-<div id="app"></div>
-<script src="script.js" defer></script>
+<body>
+  <div id="app">
+    <!-- ГЛАВНЫЙ ЭКРАН С ЦИФРАМИ -->
+    <div id="main-screen">
+      <div class="digits">
+        <span class="digit" id="digit1">1</span>
+        <span class="digit" id="digit2">2</span>
+        <span class="digit inactive" id="digit3">3</span>
+      </div>
+      <div class="buttons">
+        <button class="main-btn" id="btn1">▶ Смотреть 1</button>
+        <button class="main-btn" id="btn2">▶ Смотреть 2</button>
+        <button class="main-btn disabled" id="btn3" disabled>★ Финал</button>
+      </div>
+    </div>
+
+    <!-- ВИДЕО ПЛЕЕРЫ -->
+    <div id="video-container" style="display: none;">
+      <video id="video-main" preload="auto" muted playsinline></video>
+      <video id="video-overlay" preload="auto" muted playsinline style="display: none;"></video>
+      <div id="overlay-buttons" style="display: none;"></div>
+    </div>
+
+    <!-- ФИНАЛЬНЫЙ ЭКРАН СО ЗВЁЗДАМИ -->
+    <div id="stars-screen" style="display: none;">
+      <canvas id="stars-canvas"></canvas>
+      <a class="circle-btn" id="final-link" href="https://vk.ru/kwewqp" target="_blank" rel="noopener noreferrer">▶</a>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ----- DOM элементы -----
+      const mainScreen = document.getElementById('main-screen');
+      const videoContainer = document.getElementById('video-container');
+      const videoMain = document.getElementById('video-main');
+      const videoOverlay = document.getElementById('video-overlay');
+      const overlayButtons = document.getElementById('overlay-buttons');
+      const starsScreen = document.getElementById('stars-screen');
+      const starsCanvas = document.getElementById('stars-canvas');
+      const btn1 = document.getElementById('btn1');
+      const btn2 = document.getElementById('btn2');
+      const btn3 = document.getElementById('btn3');
+
+      // ----- СОСТОЯНИЕ -----
+      const state = {
+        video1Watched: false,       // просмотрено ли video1
+        video2TimerInterval: null,
+        video2OverlayActive: false,
+        video2PausedForVideo1: false,
+        video2CurrentTime: 0,
+      };
+
+      // ----- ОБЩИЕ ФУНКЦИИ -----
+
+      // Показать главный экран
+      function showMainScreen() {
+        mainScreen.style.display = 'flex';
+        videoContainer.style.display = 'none';
+        videoContainer.classList.remove('fade-out');
+        starsScreen.style.display = 'none';
+        // Сброс видео
+        videoMain.pause();
+        videoMain.src = '';
+        videoOverlay.pause();
+        videoOverlay.src = '';
+        videoOverlay.style.display = 'none';
+        overlayButtons.style.display = 'none';
+        clearVideo2Timer();
+        // Активация цифр и кнопок согласно состоянию
+        updateMainButtons();
+      }
+
+      // Обновить доступность кнопок главного экрана
+      function updateMainButtons() {
+        // Кнопка 3 всегда неактивна на главном экране (переход только из видео2)
+        btn3.classList.add('disabled');
+        btn3.disabled = true;
+        document.getElementById('digit3').classList.add('inactive');
+      }
+
+      // Запуск видео (главный плеер)
+      function playVideo(src, onEndedCallback) {
+        mainScreen.style.display = 'none';
+        videoContainer.style.display = 'flex';
+        videoContainer.classList.remove('fade-out');
+        videoMain.src = src;
+        videoMain.style.display = 'block';
+        videoOverlay.style.display = 'none';
+        videoOverlay.src = '';
+        overlayButtons.style.display = 'none';
+        clearVideo2Timer();
+
+        videoMain.onended = () => {
+          if (onEndedCallback) onEndedCallback();
+        };
+
+        videoMain.play().catch(e => console.warn('Автовоспроизведение:', e));
+      }
+
+      // Остановить видео и вернуться на главный экран
+      function goHome() {
+        showMainScreen();
+      }
+
+      // Запуск video2 и логика таймера
+      function startVideo2() {
+        playVideo('video2.mp4', null);
+        // Установим слушатель timeupdate
+        videoMain.ontimeupdate = video2TimeUpdate;
+        // Очистим onended, чтобы не срабатывал возврат домой (будем обрабатывать отдельно)
+        videoMain.onended = () => {
+          // Если видео2 закончилось, а кнопка 3 не появилась/не нажата, просто возвращаемся на главный экран
+          clearVideo2Timer();
+          goHome();
+        };
+      }
+
+      function video2TimeUpdate() {
+        if (!videoMain.duration || videoMain.paused) return;
+        const remaining = videoMain.duration - videoMain.currentTime;
+        // Показываем оверлей, если осталось от 15 до 20 секунд (и видео ещё не в конце)
+        if (remaining <= 20 && remaining > 0.5 && !state.video2OverlayActive) {
+          showVideo2Overlay();
+        } else if (remaining > 20 && state.video2OverlayActive) {
+          hideVideo2Overlay();
+        }
+      }
+
+      function showVideo2Overlay() {
+        state.video2OverlayActive = true;
+        overlayButtons.innerHTML = '';
+
+        if (state.video1Watched) {
+          // Только кнопка 3 (активная)
+          const btn3Overlay = document.createElement('button');
+          btn3Overlay.className = 'overlay-btn active';
+          btn3Overlay.textContent = '★ Финал';
+          btn3Overlay.addEventListener('click', onFinalButtonClick);
+          overlayButtons.appendChild(btn3Overlay);
+        } else {
+          // Две кнопки: 1 (активная) и 3 (неактивная)
+          const btn1Overlay = document.createElement('button');
+          btn1Overlay.className = 'overlay-btn active';
+          btn1Overlay.textContent = '▶ Смотреть 1';
+          btn1Overlay.addEventListener('click', onOverlayBtn1Click);
+
+          const btn3Overlay = document.createElement('button');
+          btn3Overlay.className = 'overlay-btn inactive';
+          btn3Overlay.textContent = '★ Финал';
+          btn3Overlay.disabled = true;
+
+          overlayButtons.appendChild(btn1Overlay);
+          overlayButtons.appendChild(btn3Overlay);
+        }
+
+        overlayButtons.style.display = 'flex';
+      }
+
+      function hideVideo2Overlay() {
+        state.video2OverlayActive = false;
+        overlayButtons.style.display = 'none';
+      }
+
+      // Обработчик кнопки 1 внутри video2
+      function onOverlayBtn1Click() {
+        // Поставить video2 на паузу, запомнить время
+        videoMain.pause();
+        state.video2CurrentTime = videoMain.currentTime;
+        state.video2PausedForVideo1 = true;
+        hideVideo2Overlay();
+
+        // Показать video1 поверх
+        videoOverlay.src = 'video1.mp4';
+        videoOverlay.style.display = 'block';
+        videoOverlay.currentTime = 0;
+        videoOverlay.play().catch(e => console.warn(e));
+
+        videoOverlay.onended = () => {
+          // video1 просмотрено
+          state.video1Watched = true;
+          videoOverlay.style.display = 'none';
+          videoOverlay.src = '';
+          videoOverlay.onended = null;
+
+          // Возобновить video2 с сохранённого момента
+          videoMain.currentTime = state.video2CurrentTime;
+          state.video2PausedForVideo1 = false;
+          videoMain.play();
+          // Обновить оверлей (если осталось <=20 сек, покажется только активная кнопка 3)
+          // Принудительно вызовем проверку
+          video2TimeUpdate();
+        };
+      }
+
+      // Обработчик кнопки 3 (финал) в оверлее
+      function onFinalButtonClick() {
+        // Плавно скрыть видео контейнер
+        videoContainer.classList.add('fade-out');
+        clearVideo2Timer();
+        videoMain.pause();
+        
+        // После завершения перехода показать экран со звёздами
+        videoContainer.addEventListener('transitionend', function handler() {
+          videoContainer.removeEventListener('transitionend', handler);
+          videoContainer.style.display = 'none';
+          showStarsScreen();
+        });
+        // Если transition не поддерживается, сразу покажем
+        setTimeout(() => {
+          if (videoContainer.style.display !== 'none') {
+            videoContainer.style.display = 'none';
+            showStarsScreen();
+          }
+        }, 800);
+      }
+
+      function clearVideo2Timer() {
+        if (state.video2TimerInterval) {
+          clearInterval(state.video2TimerInterval);
+          state.video2TimerInterval = null;
+        }
+      }
+
+      // ----- ЭКРАН СО ЗВЁЗДАМИ -----
+      function showStarsScreen() {
+        starsScreen.style.display = 'flex';
+        initStars();
+        // Кнопка уже с анимацией появления
+      }
+
+      let starsAnimationId = null;
+      const starsArray = [];
+      const STAR_COLORS = ['#FF0000', '#FFD700']; // красный и золотой
+
+      function initStars() {
+        if (starsAnimationId) cancelAnimationFrame(starsAnimationId);
+        const canvas = starsCanvas;
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Создадим звёзды (искорки)
+        const starCount = 150;
+        starsArray.length = 0;
+        for (let i = 0; i < starCount; i++) {
+          starsArray.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            radius: Math.random() * 3 + 1,
+            speed: Math.random() * 3 + 1.5,
+            color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+            opacity: Math.random() * 0.8 + 0.2,
+          });
+        }
+
+        function draw() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          for (let s of starsArray) {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = s.color;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = s.color;
+            ctx.globalAlpha = s.opacity;
+            ctx.fill();
+            // движение вниз
+            s.y += s.speed;
+            if (s.y - s.radius > canvas.height) {
+              s.y = -s.radius;
+              s.x = Math.random() * canvas.width;
+            }
+          }
+          ctx.globalAlpha = 1;
+          ctx.shadowBlur = 0;
+          starsAnimationId = requestAnimationFrame(draw);
+        }
+        draw();
+
+        window.addEventListener('resize', () => {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        });
+      }
+
+      // ----- ПРИВЯЗКА КНОПОК ГЛАВНОГО ЭКРАНА -----
+      btn1.addEventListener('click', () => {
+        playVideo('video1.mp4', () => {
+          state.video1Watched = true;
+          goHome();
+        });
+      });
+
+      btn2.addEventListener('click', () => {
+        startVideo2();
+      });
+
+      // Инициализация
+      showMainScreen();
+    })();
+  </script>
 </body>
 </html>
